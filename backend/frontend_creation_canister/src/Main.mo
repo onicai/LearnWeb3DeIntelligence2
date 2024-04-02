@@ -41,21 +41,13 @@ actor class CreationCanister(_master_canister_id : Text) {
         return #Ok(authRecord);
     };
 
-    // Admin function to verify that donation_tracker_canister is a controller of the donation_canister
-    /* public shared (msg) func isControllerLogicOk() : async Types.AuthRecordResult {
+    public shared (msg) func createCanister() : async Types.AuthRecordResult {
         if (not Principal.isController(msg.caller)) {
             return #Err(#Unauthorized);
         };
-
-        // Call donation_canister to verify that donation_tracker_canister is a controller
-        try {
-            let authRecordResult : Types.AuthRecordResult = await donationCanister.amiController();
-            return authRecordResult;
-        } catch (error : Error) {
-            // Handle errors, such as donation canister not responding
-            return #Err(#Other("Failed to retrieve controller info for DONATION_CANISTER_ID = " # DONATION_CANISTER_ID));
-        };
-    }; */
+        let authRecord = { auth = "You are a controller of this canister." };
+        return #Ok(authRecord);
+    };
 
     // -------------------------------------------------------------------------------
     // Canister upgrades
