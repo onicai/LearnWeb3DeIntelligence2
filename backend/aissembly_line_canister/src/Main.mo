@@ -15,14 +15,28 @@ import Bool "mo:base/Bool";
 import Types "Types";
 import Utils "Utils";
 
-actor class AissemblyLineCanister() {
+actor class AissemblyLineCanister(_model_creation_canister_id : Text, _frontend_creation_canister_id : Text) {
+
+    let MODEL_CREATION_CANISTER_ID : Text = _model_creation_canister_id;
+
+    let modelCreationCanister = actor (MODEL_CREATION_CANISTER_ID) : actor {
+        amiController() : async Types.AuthRecordResult;
+        createCanister : (configurationInput : Types.ModelConfiguration) -> async Types.ModelCreationResult;
+    };
+
+    let FRONTEND_CREATION_CANISTER_ID : Text = _frontend_creation_canister_id;
+
+    let frontendCreationCanister = actor (FRONTEND_CREATION_CANISTER_ID) : actor {
+        amiController() : async Types.AuthRecordResult;
+        createCanister : (configurationInput : Types.FrontendConfiguration) -> async Types.FrontendCreationResult;
+    };
 
     // -------------------------------------------------------------------------------
     // Orthogonal Persisted Data storage
 
-    // Map each AI model id to a record with the artefacts needed to create a new canister
-    private var creationArtefactsByModel = HashMap.HashMap<Text, Types.ModelCreationArtefacts>(0, Text.equal, Text.hash);
-    stable var creationArtefactsByModelStable : [(Text, Types.ModelCreationArtefacts)] = [];
+    // Map each user Principal to a record with the info about the created canisters
+    private var creationsByUser = HashMap.HashMap<Principal, Types.UserCreationEntry>(0, Principal.equal, Principal.hash);
+    stable var creationsByUserStable : [(Principal, Types.UserCreationEntry)] = [];
 
     // -------------------------------------------------------------------------------
     // Canister Endpoints
@@ -61,14 +75,14 @@ actor class AissemblyLineCanister() {
     // System-provided lifecycle method called before an upgrade.
     system func preupgrade() {
         // Copy the runtime state back into the stable variable before upgrade.
-        creationArtefactsByModelStable := Iter.toArray(creationArtefactsByModel.entries());
+        creationsByUserStable := Iter.toArray(creationsByUser.entries());
     };
 
     // System-provided lifecycle method called after an upgrade or on initial deploy.
     system func postupgrade() {
         // After upgrade, reload the runtime state from the stable variable.
-        creationArtefactsByModel := HashMap.fromIter(Iter.fromArray(creationArtefactsByModelStable), creationArtefactsByModelStable.size(), Text.equal, Text.hash);
-        creationArtefactsByModelStable := [];
+        creationsByUser := HashMap.fromIter(Iter.fromArray(creationsByUserStable), creationsByUserStable.size(), Principal.equal, Principal.hash);
+        creationsByUserStable := [];
     };
     // -------------------------------------------------------------------------------
 };
