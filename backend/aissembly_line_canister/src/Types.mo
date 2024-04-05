@@ -27,7 +27,7 @@ module Types {
     public type UserCreationEntry = {
         selectedModel : AvailableModels;
         modelCanister : CanisterInfo;
-        frontendCanister : CanisterInfo;
+        frontendCanister : ?CanisterInfo;
     };
 
     public type CanisterType = {
@@ -40,6 +40,14 @@ module Types {
         creationTimestamp : Nat64;
         canisterAddress : Text;
     };
+
+    public type CanisterConfiguration = {
+        canisterType : CanisterType;
+        selectedModel : ?AvailableModels;
+        owner: ?Principal;
+    };
+
+    public type UserCanistersEntryResult = Result<UserCreationEntry, ApiError>;
 
     // data needed to create a new canister with the model
     public type ModelCreationArtefacts = {

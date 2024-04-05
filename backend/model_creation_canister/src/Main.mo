@@ -11,6 +11,7 @@ import Time "mo:base/Time";
 import Int "mo:base/Int";
 import List "mo:base/List";
 import Bool "mo:base/Bool";
+import Cycles "mo:base/ExperimentalCycles";
 
 import Types "Types";
 import Utils "Utils";
@@ -52,7 +53,6 @@ actor class ModelCreationCanister(_master_canister_id : Text) = this {
             };
             case _ { return null; };
         };
-        
     };
 
 // Spin up a new canister with an AI model running in it as specified by the input parameters
@@ -64,6 +64,8 @@ actor class ModelCreationCanister(_master_canister_id : Text) = this {
 
         switch(getModelCreationArtefacts(configurationInput.selectedModel)) {
             case (?creationArtefacts) {
+                Cycles.add(300_000_000_000);
+
                 let create_canister = await IC0.create_canister({
                     settings = ?{
                         freezing_threshold = null;
