@@ -86,6 +86,9 @@ actor class CreationCanister(_master_canister_id : Text) = this {
                 // TODO: upload assets
 
 
+                // TODO: set associated model canister address (for new frontend to call)
+
+
                 let creationRecord = {
                     creationResult = "Success";
                     newCanisterId = Principal.toText(create_canister.canister_id);

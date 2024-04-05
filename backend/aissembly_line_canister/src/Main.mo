@@ -102,6 +102,24 @@ actor class AissemblyLineCanister(_model_creation_canister_id : Text, _frontend_
         };
     };
 
+    private func getCanisterInfo(user : Principal, canisterType : Types.CanisterType) : ?Types.CanisterInfo {
+        switch(canisterType) {
+            case (#Model) {
+                switch(creationsByUser.get(user)) {
+                    case (?existingUserEntry) { return ?existingUserEntry.modelCanister; };
+                    case _ { return null; }; // no entry yet
+                };
+            };
+            case (#Frontend) {
+                switch(creationsByUser.get(user)) {
+                    case (?existingUserEntry) { return existingUserEntry.frontendCanister; };
+                    case _ { return null; }; // no entry yet
+                };
+            };
+            case _ { return null; }; // Invalid request
+        };
+    };
+
     public shared (msg) func createNewCanister(configurationInput : Types.CanisterConfiguration) : async Types.ModelCreationResult {
         if (Principal.isAnonymous(msg.caller)) {
             return #Err(#Unauthorized);
@@ -146,34 +164,41 @@ actor class AissemblyLineCanister(_model_creation_canister_id : Text, _frontend_
                 if (not verifyUserRequestResult) {
                     return #Err(#Unauthorized);
                 };
-                let frontendCanisterConfiguration : Types.FrontendConfiguration = {
-                    selectedModel : Types.AvailableModels = defaultSelectedModel;
-                    owner: Principal = msg.caller;
-                };
-                let createCanisterResult : Types.FrontendCreationResult = await frontendCreationCanister.createCanister(frontendCanisterConfiguration);
-                switch (createCanisterResult) {
-                    case (#Err(createCanisterError)) { return createCanisterResult; };
-                    case (#Ok(createCanisterSuccess)) {
-                        // Update entry for user
-                        switch(creationsByUser.get(msg.caller)) {
-                            case (?existingUserEntry) {
-                                // update the user's existing entry with the frontend info
-                                let frontendCanisterInfo : Types.CanisterInfo = {
-                                    canisterType : Types.CanisterType = #Frontend;
-                                    creationTimestamp : Nat64 = Nat64.fromNat(Int.abs(Time.now()));
-                                    canisterAddress : Text = createCanisterSuccess.newCanisterId;
+                let userModelCanisterInfoResult : ?Types.CanisterInfo = getCanisterInfo(msg.caller, #Model);
+                switch(userModelCanisterInfoResult) {
+                    case (?userModelCanisterInfo) {
+                        let frontendCanisterConfiguration : Types.FrontendConfiguration = {
+                            selectedModel : Types.AvailableModels = defaultSelectedModel;
+                            owner: Principal = msg.caller;
+                            associatedModelCanisterId : Text = userModelCanisterInfo.canisterAddress;
+                        };
+                        let createCanisterResult : Types.FrontendCreationResult = await frontendCreationCanister.createCanister(frontendCanisterConfiguration);
+                        switch (createCanisterResult) {
+                            case (#Err(createCanisterError)) { return createCanisterResult; };
+                            case (#Ok(createCanisterSuccess)) {
+                                // Update entry for user
+                                switch(creationsByUser.get(msg.caller)) {
+                                    case (?existingUserEntry) {
+                                        // update the user's existing entry with the frontend info
+                                        let frontendCanisterInfo : Types.CanisterInfo = {
+                                            canisterType : Types.CanisterType = #Frontend;
+                                            creationTimestamp : Nat64 = Nat64.fromNat(Int.abs(Time.now()));
+                                            canisterAddress : Text = createCanisterSuccess.newCanisterId;
+                                        };
+                                        let updatedUserEntry : Types.UserCreationEntry = {
+                                            selectedModel : Types.AvailableModels = existingUserEntry.selectedModel;
+                                            modelCanister : Types.CanisterInfo = existingUserEntry.modelCanister;
+                                            frontendCanister : ?Types.CanisterInfo = ?frontendCanisterInfo;
+                                        };
+                                        creationsByUser.put(msg.caller, updatedUserEntry);
+                                        return createCanisterResult;
+                                    };
+                                    case _ { return #Err(#Unauthorized); }; // no entry yet but it must exist already
                                 };
-                                let updatedUserEntry : Types.UserCreationEntry = {
-                                    selectedModel : Types.AvailableModels = existingUserEntry.selectedModel;
-                                    modelCanister : Types.CanisterInfo = existingUserEntry.modelCanister;
-                                    frontendCanister : ?Types.CanisterInfo = ?frontendCanisterInfo;
-                                };
-                                creationsByUser.put(msg.caller, updatedUserEntry);
-                                return createCanisterResult;
                             };
-                            case _ { return #Err(#Unauthorized); }; // no entry yet but it must exist already
                         };
                     };
+                    case _ { return #Err(#Unauthorized); }; // no entry yet
                 };
             };
             case _ { return #Err(#Unauthorized); };

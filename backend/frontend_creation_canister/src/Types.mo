@@ -34,6 +34,7 @@ module Types {
     public type FrontendConfiguration = {
         selectedModel : AvailableModels;
         owner: Principal;
+        associatedModelCanisterId : Text;
     };
 
     public type FrontendCreationRecord = {
