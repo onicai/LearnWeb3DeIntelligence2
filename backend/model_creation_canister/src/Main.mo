@@ -57,6 +57,7 @@ actor class ModelCreationCanister(_master_canister_id : Text) = this {
 
 // Spin up a new canister with an AI model running in it as specified by the input parameters
     public shared (msg) func createCanister(configurationInput : Types.ModelConfiguration) : async Types.ModelCreationResult {
+        // Only backend canister may call this
         if (not Principal.isController(msg.caller)) {
             return #Err(#Unauthorized);
         };

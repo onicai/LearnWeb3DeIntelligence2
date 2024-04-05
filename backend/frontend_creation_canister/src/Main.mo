@@ -15,7 +15,7 @@ import Bool "mo:base/Bool";
 import Types "Types";
 import Utils "Utils";
 
-actor class CreationCanister(_master_canister_id : Text) {
+actor class CreationCanister(_master_canister_id : Text) = this {
 
     let MASTER_CANISTER_ID : Text = _master_canister_id;
 
@@ -23,8 +23,8 @@ actor class CreationCanister(_master_canister_id : Text) {
     // Orthogonal Persisted Data storage
 
     // Map each AI model id to a record with the artefacts needed to create a new canister
-    private var creationArtefactsByModel = HashMap.HashMap<Text, Types.ModelCreationArtefacts>(0, Text.equal, Text.hash);
-    stable var creationArtefactsByModelStable : [(Text, Types.ModelCreationArtefacts)] = [];
+    private var creationArtefactsByModel = HashMap.HashMap<Text, Types.FrontendCreationArtefacts>(0, Text.equal, Text.hash);
+    stable var creationArtefactsByModelStable : [(Text, Types.FrontendCreationArtefacts)] = [];
 
     // -------------------------------------------------------------------------------
     // Canister Endpoints
@@ -41,12 +41,56 @@ actor class CreationCanister(_master_canister_id : Text) {
         return #Ok(authRecord);
     };
 
-    public shared (msg) func createCanister() : async Types.AuthRecordResult {
+    let IC0 : Types.IC_Management = actor ("aaaaa-aa");
+    private stable var asset_canister_wasm : Blob = "\de\ad\be\ef"; // TODO
+
+    private func getModelCreationArtefacts(selectedModel : Types.AvailableModels) : ?Types.FrontendCreationArtefacts {
+        switch(selectedModel) {
+            case (#Llama2_15M) {
+                let creationArtefacts : ?Types.FrontendCreationArtefacts = creationArtefactsByModel.get("Llama2_15M"); // TODO
+                return creationArtefacts;
+            };
+            case _ { return null; };
+        };
+        
+    };
+
+// Spin up a new canister with a frontend as specified by the input parameters to interact with the AI model canister
+    public shared (msg) func createCanister(configurationInput : Types.FrontendConfiguration) : async Types.FrontendCreationResult {
+        // Only backend canister may call this
         if (not Principal.isController(msg.caller)) {
             return #Err(#Unauthorized);
         };
-        let authRecord = { auth = "You are a controller of this canister." };
-        return #Ok(authRecord);
+        
+        switch(getModelCreationArtefacts(configurationInput.selectedModel)) {
+            case (?creationArtefacts) {
+                let create_canister = await IC0.create_canister({
+                    settings = ?{
+                        freezing_threshold = null;
+                        controllers = ?[Principal.fromActor(this), configurationInput.owner];
+                        memory_allocation = null;
+                        compute_allocation = null;
+                    }
+                });
+
+                let install_wasm = await IC0.install_code({
+                    arg = ""; // TODO
+                    wasm_module = creationArtefacts.canisterWasm;
+                    mode = #install;
+                    canister_id = create_canister.canister_id;
+                });
+
+                // TODO: upload assets
+
+
+                let creationRecord = {
+                    creationResult = "Success";
+                    newCanisterId = Principal.toText(create_canister.canister_id);
+                };
+                return #Ok(creationRecord);
+            };
+            case _ { return #Err(#InvalidId); };
+        };
     };
 
     // -------------------------------------------------------------------------------
