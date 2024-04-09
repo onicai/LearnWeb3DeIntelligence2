@@ -3,6 +3,15 @@
   "canisters": {
     "model_creation_canister": {
       "main": "src/Main.mo"
+    },
+    "model_loader_frontend": {
+      "frontend": {
+        "entrypoint": "dist/index.html"
+      },
+      "source": [
+        "dist/"
+      ],
+      "type": "assets"
     }
   },
   "defaults": {
